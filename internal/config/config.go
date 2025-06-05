@@ -37,17 +37,19 @@ func (p Postgres) DSN() string {
 func MustLoad() *Config {
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
-		slog.Error("CONFIG_PATH is not set")
+		configPath = "config.yaml"
 	}
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		slog.Error("Config file does not exist: %s", configPath, sl.Err(err))
+		slog.Error("Config file does not exist", slog.String("path", configPath))
+		panic("config file does not exist: " + configPath)
 	}
 
 	var cfg Config
 
 	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
-		slog.Error("Cannot read config: %s", sl.Err(err))
+		slog.Error("Cannot read config", sl.Err(err))
+		panic("cannot read config: " + err.Error())
 	}
 
 	cfg.Database.Password = os.Getenv("POSTGRES_PASSWORD")

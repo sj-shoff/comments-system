@@ -7,7 +7,7 @@ import (
 
 type PostStorage interface {
 	CreatePost(ctx context.Context, post models.Post) (models.Post, error)
-	GetPosts(ctx context.Context) ([]models.Post, error)
+	GetPosts(ctx context.Context, limit, offset int) ([]models.Post, error)
 	GetPost(ctx context.Context, id string) (models.Post, error)
 	UpdatePost(ctx context.Context, post models.Post) error
 }

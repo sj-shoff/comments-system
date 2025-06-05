@@ -40,7 +40,7 @@ func (s *Storage) CreatePost(ctx context.Context, post models.Post) (models.Post
 	return post, nil
 }
 
-func (s *Storage) GetPosts(ctx context.Context) ([]models.Post, error) {
+func (s *Storage) GetPosts(ctx context.Context, limit, offset int) ([]models.Post, error) {
 	s.postsMu.RLock()
 	defer s.postsMu.RUnlock()
 
@@ -53,7 +53,16 @@ func (s *Storage) GetPosts(ctx context.Context) ([]models.Post, error) {
 		return posts[i].CreatedAt.After(posts[j].CreatedAt)
 	})
 
-	return posts, nil
+	start := offset
+	if start > len(posts) {
+		start = len(posts)
+	}
+	end := start + limit
+	if end > len(posts) {
+		end = len(posts)
+	}
+
+	return posts[start:end], nil
 }
 
 func (s *Storage) GetPost(ctx context.Context, id string) (models.Post, error) {
@@ -87,13 +96,17 @@ func (s *Storage) CreateComment(ctx context.Context, comment models.Comment) (mo
 	}
 
 	if comment.ParentID != nil {
-		if parent, ok := s.comments[*comment.ParentID]; !ok || parent.PostID != comment.PostID {
+		parent, ok := s.comments[*comment.ParentID]
+		if !ok || parent.PostID != comment.PostID {
 			return models.Comment{}, errors.ErrParentNotFound
 		}
 	}
 
-	comment.ID = utils.GenerateID()
+	if comment.ID == "" {
+		comment.ID = utils.GenerateID()
+	}
 	comment.CreatedAt = time.Now()
+
 	s.comments[comment.ID] = comment
 
 	s.postComments[comment.PostID] = append(s.postComments[comment.PostID], comment.ID)
@@ -138,7 +151,7 @@ func (s *Storage) GetCommentsByPost(ctx context.Context, postID string, limit, o
 
 	start := offset
 	if start > len(rootComments) {
-		return []models.Comment{}, nil
+		start = len(rootComments)
 	}
 	end := start + limit
 	if end > len(rootComments) {

@@ -4,7 +4,6 @@ import (
 	"time"
 )
 
-// Post представляет пост
 type Post struct {
 	ID              string    `json:"id" db:"id"`
 	Title           string    `json:"title" db:"title"`
@@ -14,7 +13,6 @@ type Post struct {
 	CreatedAt       time.Time `json:"createdAt" db:"created_at"`
 }
 
-// Comment представляет комментарий
 type Comment struct {
 	ID        string    `json:"id" db:"id"`
 	PostID    string    `json:"postId" db:"post_id"`
@@ -24,13 +22,11 @@ type Comment struct {
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 }
 
-// CommentsPage представляет страницу с комментариями
 type CommentsPage struct {
 	Total    int       `json:"total"`
 	Comments []Comment `json:"comments"`
 }
 
-// CreatePostInput представляет входные данные для создания поста
 type CreatePostInput struct {
 	Title           string `json:"title"`
 	Content         string `json:"content"`
@@ -38,7 +34,6 @@ type CreatePostInput struct {
 	CommentsEnabled bool   `json:"commentsEnabled"`
 }
 
-// CreateCommentInput представляет входные данные для создания комментария
 type CreateCommentInput struct {
 	PostID   string  `json:"postId"`
 	ParentID *string `json:"parentId,omitempty"`

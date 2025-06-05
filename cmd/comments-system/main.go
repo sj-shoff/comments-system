@@ -2,6 +2,7 @@ package main
 
 import (
 	"comments-system/internal/config"
+	"comments-system/internal/graph"
 	"comments-system/internal/pubsub"
 	"comments-system/internal/service"
 	"comments-system/internal/storage"
@@ -18,6 +19,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/extension"
+	"github.com/99designs/gqlgen/graphql/handler/transport"
+	"github.com/99designs/gqlgen/graphql/playground"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -43,7 +48,7 @@ func main() {
 			os.Exit(1)
 		}
 		log.Info("Using PostgreSQL storage")
-	default:
+	case "inmemeory":
 		storage = inmemory.NewInMemory()
 		log.Info("Using in-memory storage")
 	}
@@ -57,15 +62,27 @@ func main() {
 
 	ps := pubsub.NewPubSub()
 
-	// SERVER GRAPHQL
+	srv := handler.New(graph.NewExecutableSchema(graph.Config{
+		Resolvers: graph.NewResolver(services, ps, log),
+	}))
 
-	server := &http.Server{
-		Addr:    ":" + cfg.Server.Port,
-		Handler: http.DefaultServeMux,
-	}
+	srv.AddTransport(transport.POST{})
+	srv.AddTransport(transport.Websocket{
+		KeepAlivePingInterval: 10 * time.Second,
+	})
+	srv.Use(extension.Introspection{})
+
+	router := http.NewServeMux()
+	router.Handle("/", playground.Handler("GraphQL Playground", "/query"))
+	router.Handle("/query", srv)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	server := &http.Server{
+		Addr:    ":" + cfg.Server.Port,
+		Handler: router,
+	}
 
 	g, gCtx := errgroup.WithContext(ctx)
 	g.Go(func() error {

@@ -3,6 +3,7 @@ package service
 import (
 	"comments-system/internal/models"
 	"comments-system/internal/storage"
+	"comments-system/pkg/errors"
 	"comments-system/pkg/logger/sl"
 	"comments-system/pkg/utils"
 	"context"
@@ -16,17 +17,41 @@ type commentService struct {
 }
 
 func NewCommentService(storage storage.Storage, log *slog.Logger) CommentService {
-	const op = "service.comment_service.NewCommentService"
-	log = log.With(slog.String("op", op))
-	return &commentService{storage: storage, log: log}
+	return &commentService{
+		storage: storage,
+		log:     log,
+	}
 }
 
-func (c *commentService) CreateComment(ctx context.Context, input models.CreateCommentInput) (models.Comment, error) {
-	const op = "service.comment_service.CreateComment"
+func (cs *commentService) CreateComment(ctx context.Context, input models.CreateCommentInput) (models.Comment, error) {
+	const op = "service.commentService.CreateComment"
+	log := cs.log.With(slog.String("op", op))
 
+	// Проверка валидности комментария
 	if err := utils.ValidateComment(input.Content); err != nil {
-		c.log.Error("invalid comment content", sl.Err(err))
+		log.Error("Invalid comment content", sl.Err(err))
 		return models.Comment{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	// Проверка разрешения комментариев для поста
+	post, err := cs.storage.GetPost(ctx, input.PostID)
+	if err != nil {
+		log.Error("Failed to get post", sl.Err(err), "postID", input.PostID)
+		return models.Comment{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if !post.CommentsEnabled {
+		log.Warn("Comments disabled for post", "postID", input.PostID)
+		return models.Comment{}, errors.ErrCommentsDisabled
+	}
+
+	// Проверка родительского комментария
+	if input.ParentID != nil {
+		_, err := cs.storage.GetComment(ctx, *input.ParentID)
+		if err != nil {
+			log.Error("Parent comment not found", sl.Err(err), "parentID", *input.ParentID)
+			return models.Comment{}, fmt.Errorf("%s: %w", op, errors.ErrParentNotFound)
+		}
 	}
 
 	comment := models.Comment{
@@ -36,60 +61,60 @@ func (c *commentService) CreateComment(ctx context.Context, input models.CreateC
 		Content:  input.Content,
 	}
 
-	createdComment, err := c.storage.CreateComment(ctx, comment)
+	createdComment, err := cs.storage.CreateComment(ctx, comment)
 	if err != nil {
-		c.log.Error("failed to create comment", sl.Err(err))
-		return models.Comment{}, fmt.Errorf("%s: failed to create comment: %w", op, err)
+		log.Error("Failed to create comment", sl.Err(err), "input", input)
+		return models.Comment{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	c.log.Info("comment created")
+	log.Info("Comment created", "id", createdComment.ID, "postID", input.PostID)
 	return createdComment, nil
 }
 
-// GetComments получает комментарии для поста с учетом лимита и смещения.
-func (c *commentService) GetComments(ctx context.Context, postID string, limit, offset int) ([]models.Comment, int, error) {
-	const op = "service.comment_service.GetComments"
+func (cs *commentService) GetComments(ctx context.Context, postID string, limit, offset int) ([]models.Comment, int, error) {
+	const op = "service.commentService.GetComments"
+	log := cs.log.With(slog.String("op", op))
 
-	comments, err := c.storage.GetCommentsByPost(ctx, postID, limit, offset) // Передаем postID
+	comments, err := cs.storage.GetCommentsByPost(ctx, postID, limit, offset)
 	if err != nil {
-		c.log.Error("failed to get comments", slog.String("op", op), slog.String("post_id", postID), slog.Any("error", err)) // Логирование ошибки получения
-		return nil, 0, fmt.Errorf("%s: failed to get comments: %w", op, err)
+		log.Error("Failed to get comments", sl.Err(err), "postID", postID)
+		return nil, 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	total, err := c.storage.CountCommentsByPost(ctx, postID)
+	total, err := cs.storage.CountCommentsByPost(ctx, postID)
 	if err != nil {
-		c.log.Error("failed to count comments", sl.Err(err))
-		return nil, 0, fmt.Errorf("%s: failed to count comments: %w", op, err)
+		log.Error("Failed to count comments", sl.Err(err), "postID", postID)
+		return nil, 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	c.log.Info("comments retrieved")
+	log.Info("Comments retrieved", "postID", postID, "count", len(comments), "total", total)
 	return comments, total, nil
 }
 
-// GetCommentReplies получает ответы на комментарий.
-func (c *commentService) GetCommentReplies(ctx context.Context, parentID string) ([]models.Comment, error) {
-	const op = "service.comment_service.GetCommentReplies"
+func (cs *commentService) GetCommentReplies(ctx context.Context, parentID string) ([]models.Comment, error) {
+	const op = "service.commentService.GetCommentReplies"
+	log := cs.log.With(slog.String("op", op))
 
-	replies, err := c.storage.GetCommentReplies(ctx, parentID)
+	replies, err := cs.storage.GetCommentReplies(ctx, parentID)
 	if err != nil {
-		c.log.Error("failed to get comment replies", slog.String("op", op), slog.String("parent_id", parentID), slog.Any("error", err)) // Логирование ошибки получения
-		return nil, fmt.Errorf("%s: failed to get comment replies: %w", op, err)
+		log.Error("Failed to get comment replies", sl.Err(err), "parentID", parentID)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	c.log.Info("comment replies retrieved", slog.String("op", op), slog.String("parent_id", parentID), slog.Int("count", len(replies))) // Логирование успешного получения
+	log.Info("Comment replies retrieved", "parentID", parentID, "count", len(replies))
 	return replies, nil
 }
 
-// GetComment получает комментарий по ID.
-func (c *commentService) GetComment(ctx context.Context, id string) (models.Comment, error) {
-	const op = "service.comment_service.GetComment"
+func (cs *commentService) GetComment(ctx context.Context, id string) (models.Comment, error) {
+	const op = "service.commentService.GetComment"
+	log := cs.log.With(slog.String("op", op))
 
-	comment, err := c.storage.GetComment(ctx, id)
+	comment, err := cs.storage.GetComment(ctx, id)
 	if err != nil {
-		c.log.Error("failed to get comment", slog.String("op", op), slog.String("comment_id", id), slog.Any("error", err)) // Логирование ошибки получения
-		return models.Comment{}, fmt.Errorf("%s: failed to get comment: %w", op, err)
+		log.Error("Failed to get comment", sl.Err(err), "id", id)
+		return models.Comment{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	c.log.Info("comment retrieved", slog.String("op", op), slog.String("comment_id", id)) // Логирование успешного получения
+	log.Info("Comment retrieved", "id", id)
 	return comment, nil
 }
