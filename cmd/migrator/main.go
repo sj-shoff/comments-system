@@ -1,8 +1,9 @@
 package main
 
 import (
-	"comments-system/pkg/logger/sl"
+	"comments-system/internal/config"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -12,23 +13,40 @@ import (
 )
 
 func main() {
-	dsn := flag.String("dsn", "", "PostgreSQL DSN")
+	cfg := config.MustLoad()
+
 	migrationsPath := flag.String("migrations-path", "", "Path to migrations")
 	flag.Parse()
 
-	if *dsn == "" || *migrationsPath == "" {
-		slog.Error("Both dsn and migrations-path must be provided")
+	if *migrationsPath == "" {
+		*migrationsPath = cfg.Migrations
+	}
+
+	if *migrationsPath == "" {
+		slog.Error("Migrations path is required")
 		os.Exit(1)
 	}
 
-	m, err := migrate.New("file://"+*migrationsPath, "postgres://"+*dsn)
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		cfg.Database.Username,
+		cfg.Database.Password,
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.DBName,
+		cfg.Database.SSLMode,
+	)
+
+	m, err := migrate.New(
+		"file://"+*migrationsPath,
+		dsn,
+	)
 	if err != nil {
-		slog.Error("Migration initialization failed", "error", sl.Err(err))
+		slog.Error("Migration initialization failed", "error", err)
 		os.Exit(1)
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		slog.Error("Migration failed", sl.Err(err))
+		slog.Error("Migration failed", "error", err)
 		os.Exit(1)
 	}
 

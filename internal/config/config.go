@@ -31,42 +31,38 @@ type Postgres struct {
 	SSLMode  string `yaml:"sslmode"`
 }
 
-func (p Postgres) DSN() string {
-	return "postgres://" + p.Username + ":" + p.Password + "@" + p.Host + ":" + p.Port + "/" + p.DBName + "?sslmode=" + p.SSLMode
-}
-
 func MustLoad() *Config {
-	configPath := fetchConfigPath()
-	if configPath == "" {
-		configPath = "config.yaml"
+	configPath := flag.String("config", "", "path to config file")
+	flag.Parse()
+
+	path := ""
+	if *configPath != "" {
+		path = *configPath
+	} else if envPath := os.Getenv("CONFIG_PATH"); envPath != "" {
+		path = envPath
+	} else {
+		path = "config.yaml"
 	}
 
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		slog.Error("Config file does not exist", slog.String("path", configPath))
-		panic("config file does not exist: " + configPath)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		slog.Error("Config file does not exist", slog.String("path", path))
+		panic("config file does not exist: " + path)
 	}
 
 	var cfg Config
-
-	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
+	if err := cleanenv.ReadConfig(path, &cfg); err != nil {
 		slog.Error("Cannot read config", sl.Err(err))
 		panic("cannot read config: " + err.Error())
 	}
 
-	cfg.Database.Password = os.Getenv("POSTGRES_PASSWORD")
-
-	return &cfg
-}
-
-func fetchConfigPath() string {
-	var res string
-
-	flag.StringVar(&res, "config", "", "path to config file")
-	flag.Parse()
-
-	if res == "" {
-		return os.Getenv("CONFIG_PATH")
+	if cfg.Storage == "postgres" {
+		if password := os.Getenv("POSTGRES_PASSWORD"); password != "" {
+			cfg.Database.Password = password
+		} else {
+			slog.Error("POSTGRES_PASSWORD environment variable not set")
+			os.Exit(1)
+		}
 	}
 
-	return res
+	return &cfg
 }

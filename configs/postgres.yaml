@@ -1,0 +1,15 @@
+env: local
+migrations: "./migrations"
+
+server:
+  port: "8080"
+
+postgres:
+  host: "postgres"
+  port: "5432"
+  username: "postgres"
+  password: ""
+  dbname: "comments"
+  sslmode: "disable"
+
+storage: "postgres"

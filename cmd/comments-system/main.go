@@ -75,7 +75,7 @@ func main() {
 
 	router := http.NewServeMux()
 	router.Handle("/", playground.Handler("GraphQL Playground", "/query"))
-	router.Handle("/query", contentTypeMiddleware(srv))
+	router.Handle("/query", graph.ContentTypeMiddleware(srv))
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -147,11 +147,4 @@ func setupPrettySlog() *slog.Logger {
 	handler := opts.NewPrettyHandler(os.Stdout)
 
 	return slog.New(handler)
-}
-
-func contentTypeMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		next.ServeHTTP(w, r)
-	})
 }
