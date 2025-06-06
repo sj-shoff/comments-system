@@ -1,6 +1,7 @@
 package config
 
 import (
+	"flag"
 	"log/slog"
 	"os"
 
@@ -35,7 +36,7 @@ func (p Postgres) DSN() string {
 }
 
 func MustLoad() *Config {
-	configPath := os.Getenv("CONFIG_PATH")
+	configPath := fetchConfigPath()
 	if configPath == "" {
 		configPath = "config.yaml"
 	}
@@ -55,4 +56,17 @@ func MustLoad() *Config {
 	cfg.Database.Password = os.Getenv("POSTGRES_PASSWORD")
 
 	return &cfg
+}
+
+func fetchConfigPath() string {
+	var res string
+
+	flag.StringVar(&res, "config", "", "path to config file")
+	flag.Parse()
+
+	if res == "" {
+		return os.Getenv("CONFIG_PATH")
+	}
+
+	return res
 }

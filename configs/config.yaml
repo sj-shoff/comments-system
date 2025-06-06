@@ -1,4 +1,4 @@
-env: local
+env: local # dev, prod
 migrations: "./migrations"
 
 server:
@@ -12,4 +12,4 @@ postgres:
   dbname: "comments"
   sslmode: "disable"
 
-storage: "postgres" # или "inmemory"
+storage: "inmemory" # или "postgres"

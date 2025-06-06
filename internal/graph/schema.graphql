@@ -53,3 +53,9 @@ type Mutation {
 type Subscription {
     commentAdded(postId: ID!): Comment!
 }
+
+schema {
+    query: Query
+    mutation: Mutation
+    subscription: Subscription
+}

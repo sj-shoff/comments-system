@@ -3,6 +3,7 @@ package main
 import (
 	"comments-system/internal/config"
 	"comments-system/internal/graph"
+	"comments-system/internal/graph/generated"
 	"comments-system/internal/pubsub"
 	"comments-system/internal/service"
 	"comments-system/internal/storage"
@@ -48,7 +49,7 @@ func main() {
 			os.Exit(1)
 		}
 		log.Info("Using PostgreSQL storage")
-	case "inmemeory":
+	case "inmemory":
 		storage = inmemory.NewInMemory()
 		log.Info("Using in-memory storage")
 	}
@@ -62,7 +63,7 @@ func main() {
 
 	ps := pubsub.NewPubSub()
 
-	srv := handler.New(graph.NewExecutableSchema(graph.Config{
+	srv := handler.New(generated.NewExecutableSchema(generated.Config{
 		Resolvers: graph.NewResolver(services, ps, log),
 	}))
 
@@ -74,7 +75,7 @@ func main() {
 
 	router := http.NewServeMux()
 	router.Handle("/", playground.Handler("GraphQL Playground", "/query"))
-	router.Handle("/query", srv)
+	router.Handle("/query", contentTypeMiddleware(srv))
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -146,4 +147,11 @@ func setupPrettySlog() *slog.Logger {
 	handler := opts.NewPrettyHandler(os.Stdout)
 
 	return slog.New(handler)
+}
+
+func contentTypeMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		next.ServeHTTP(w, r)
+	})
 }

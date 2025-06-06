@@ -27,13 +27,11 @@ func (cs *commentService) CreateComment(ctx context.Context, input models.Create
 	const op = "service.commentService.CreateComment"
 	log := cs.log.With(slog.String("op", op))
 
-	// Проверка валидности комментария
 	if err := utils.ValidateComment(input.Content); err != nil {
 		log.Error("Invalid comment content", sl.Err(err))
 		return models.Comment{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	// Проверка разрешения комментариев для поста
 	post, err := cs.storage.GetPost(ctx, input.PostID)
 	if err != nil {
 		log.Error("Failed to get post", sl.Err(err), "postID", input.PostID)
@@ -45,7 +43,6 @@ func (cs *commentService) CreateComment(ctx context.Context, input models.Create
 		return models.Comment{}, errors.ErrCommentsDisabled
 	}
 
-	// Проверка родительского комментария
 	if input.ParentID != nil {
 		_, err := cs.storage.GetComment(ctx, *input.ParentID)
 		if err != nil {

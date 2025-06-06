@@ -1,17 +1,21 @@
 schema:
-  - internal/graph/schema.graphqls
+  - internal/graph/schema.graphql
 exec:
-  filename: internal/graph/generated.go
-  package: graph
-model:
-  filename: internal/graph/model.go
-  package: graph
+  filename: internal/graph/generated/generated.go
+  package: generated
 resolver:
-  layout: single-file
-  filename: internal/graph/resolver.go
-  package: graph
+  filename: internal/graph/schema.resolvers.go
+  type: Resolver
 autobind:
-  - comments-system/internal/models
+  - "comments-system/internal/models"
 models:
-  Time:
-    model: github.com/99designs/gqlgen/graphql.Time
+  Post:
+    model: "comments-system/internal/models.Post"
+  Comment:
+    model: "comments-system/internal/models.Comment"
+  CommentsPage:
+    model: "comments-system/internal/models.CommentsPage"
+  CreatePostInput:
+    model: "comments-system/internal/models.CreatePostInput"
+  CreateCommentInput:
+    model: "comments-system/internal/models.CreateCommentInput"
