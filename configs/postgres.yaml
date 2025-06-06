@@ -1,4 +1,4 @@
-env: local
+env: dev # local, dev, prod
 migrations: "./migrations"
 
 server:

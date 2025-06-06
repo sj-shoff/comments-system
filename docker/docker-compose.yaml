@@ -7,14 +7,20 @@ services:
       dockerfile: docker/Dockerfile
     environment:
       - CONFIG_PATH=/app/configs/${CONFIG_FILE:-postgres.yaml}
-      - POSTGRES_HOST=db
+      - STORAGE_TYPE=${STORAGE_TYPE:-postgres}
+      - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
       - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
+    command: >
+      sh -c "
+      if [ \"$$STORAGE_TYPE\" = 'postgres' ]; then
+        echo 'Waiting for PostgreSQL...';
+        /app/wait-for-postgres.sh $$POSTGRES_HOST $$POSTGRES_PORT;
+      fi;
+      ./comments-system
+      "
 
   migrator:
     build:
@@ -22,13 +28,20 @@ services:
       dockerfile: docker/Dockerfile
     environment:
       - CONFIG_PATH=/app/configs/${CONFIG_FILE:-postgres.yaml}
-      - POSTGRES_HOST=db
+      - STORAGE_TYPE=${STORAGE_TYPE:-postgres}
+      - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    command: ["sh", "-c", "/app/wait-for-postgres.sh postgres 5432 && ./migrator"]
-    depends_on:
-      postgres:
-        condition: service_healthy
+    command: >
+      sh -c "
+      if [ \"$$STORAGE_TYPE\" = 'postgres' ]; then
+        echo 'Running migrations...';
+        /app/wait-for-postgres.sh $$POSTGRES_HOST $$POSTGRES_PORT && ./migrator;
+      else
+        echo 'Skipping migrations for in-memory storage';
+        sleep 1;
+      fi
+      "
 
   postgres:
     image: postgres:15-alpine

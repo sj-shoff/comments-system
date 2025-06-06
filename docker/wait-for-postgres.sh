@@ -2,6 +2,11 @@
 
 set -e
 
+if [ "$STORAGE_TYPE" != "postgres" ]; then
+  >&2 echo "Skipping PostgreSQL wait for $STORAGE_TYPE storage"
+  exec $@
+fi
+
 host="$1"
 port="$2"
 shift 2

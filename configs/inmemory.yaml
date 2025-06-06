@@ -1,4 +1,4 @@
-env: local
+env: dev # local, dev, prod
 
 server:
   port: "8080"
