@@ -1,18 +1,5 @@
 .PHONY: run-inmemory run-postgres docker-inmemory docker-postgres docker-down migrate gqlgen
 
-INMEMORY_CONFIG := ./configs/inmemory.yaml
-POSTGRES_CONFIG := ./configs/postgres.yaml
-
-# (local)
-run-inmemory:
-	@echo "Starting in-memory storage..."
-	CONFIG_PATH=$(INMEMORY_CONFIG) go run ./cmd/comments-system/main.go
-
-# (local)
-run-postgres:
-	@echo "Starting PostgreSQL storage..."
-	CONFIG_PATH=$(POSTGRES_CONFIG) POSTGRES_PASSWORD=$$(grep POSTGRES_PASSWORD .env | cut -d '=' -f2) go run ./cmd/comments-system/main.go
-
 docker-inmemory:
 	@echo "Starting Docker with in-memory storage..."
 	docker-compose -f docker/docker-compose.yaml down -v
