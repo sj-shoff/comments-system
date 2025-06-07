@@ -37,3 +37,6 @@ migrate:
 gqlgen:
 	@echo "Generating GraphQL code..."
 	go run github.com/99designs/gqlgen generate --config ./internal/graph/gqlgen.yml
+
+test:
+	go test -v ./... | grep -v 'no test files'
